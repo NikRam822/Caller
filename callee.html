@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head><title>Callee</title></head>
+<body>
+<h2>Callee (Принимающий)</h2>
+
+<audio id="remoteAudio" autoplay></audio>
+
+<h3>Offer (Вставить от другого)</h3>
+<textarea id="offer" cols="60" rows="10"></textarea>
+<button id="setOffer">Установить offer</button>
+
+<h3>Answer (Отправить другому)</h3>
+<textarea id="answer" cols="60" rows="10" readonly></textarea>
+
+<h3>ICE кандидаты (Отправить другому)</h3>
+<textarea id="iceCandidates" cols="60" rows="10" readonly></textarea>
+
+<h3>ICE кандидаты (Вставить от другого)</h3>
+<textarea id="remoteIceCandidates" cols="60" rows="10"></textarea>
+<button id="addIceCandidates">Добавить ICE кандидаты</button>
+
+<script>
+let pc = new RTCPeerConnection();
+let remoteAudio = document.getElementById('remoteAudio');
+let iceCandidatesTextarea = document.getElementById('iceCandidates');
+
+pc.ontrack = event => {
+  remoteAudio.srcObject = event.streams[0];
+};
+
+pc.onicecandidate = event => {
+  if (event.candidate) {
+    iceCandidatesTextarea.value += JSON.stringify(event.candidate) + '\n';
+  }
+};
+
+document.getElementById('setOffer').onclick = async () => {
+  let offer = JSON.parse(document.getElementById('offer').value);
+  await pc.setRemoteDescription(offer);
+
+  let stream = await navigator.mediaDevices.getUserMedia({audio: true});
+  stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+  let answer = await pc.createAnswer();
+  await pc.setLocalDescription(answer);
+
+  document.getElementById('answer').value = JSON.stringify(pc.localDescription);
+};
+
+document.getElementById('addIceCandidates').onclick = async () => {
+  let candidates = document.getElementById('remoteIceCandidates').value.trim().split('\n');
+  for(let c of candidates) {
+    if(c) {
+      try {
+        let candidate = new RTCIceCandidate(JSON.parse(c));
+        await pc.addIceCandidate(candidate);
+      } catch(e) {
+        console.error(e);
+      }
+    }
+  }
+};
+</script>
+</body>
+</html>
