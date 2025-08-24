@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head><title>Caller</title></head>
+<body>
+<h2>Caller (Инициатор)</h2>
+
+<audio id="remoteAudio" autoplay></audio>
+<video id="localVideo" autoplay muted playsinline></video>
+
+<h3>Offer (Отправить другу)</h3>
+<textarea id="offer" cols="60" rows="10" readonly></textarea>
+
+<h3>Answer (Вставить от друга)</h3>
+<textarea id="answer" cols="60" rows="10"></textarea>
+<button id="setAnswer">Установить answer</button>
+
+<h3>ICE кандидаты (Отправить другу)</h3>
+<textarea id="iceCandidates" cols="60" rows="10" readonly></textarea>
+
+<h3>ICE кандидаты (Вставить от друга)</h3>
+<textarea id="remoteIceCandidates" cols="60" rows="10"></textarea>
+<button id="addIceCandidates">Добавить ICE кандидаты</button>
+
+<button id="startCall">Начать звонок</button>
+
+<script>
+const iceServers = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  {
+    urls: 'turn:openrelay.metered.ca:80',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:openrelay.metered.ca:443',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  }
+];
+
+let pc = new RTCPeerConnection({ iceServers });
+const remoteAudio = document.getElementById('remoteAudio');
+const localVideo = document.getElementById('localVideo');
+const iceCandidatesTextarea = document.getElementById('iceCandidates');
+
+pc.ontrack = event => {
+  remoteAudio.srcObject = event.streams[0];
+};
+
+pc.onicecandidate = event => {
+  if (event.candidate) {
+    iceCandidatesTextarea.value += JSON.stringify(event.candidate) + '\n';
+  }
+};
+
+document.getElementById('startCall').onclick = async () => {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+  localVideo.srcObject = stream;
+  stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+
+  document.getElementById('offer').value = JSON.stringify(pc.localDescription);
+};
+
+document.getElementById('setAnswer').onclick = async () => {
+  const answer = JSON.parse(document.getElementById('answer').value);
+  await pc.setRemoteDescription(answer);
+};
+
+document.getElementById('addIceCandidates').onclick = async () => {
+  const candidates = document.getElementById('remoteIceCandidates').value.trim().split('\n');
+  for (const c of candidates) {
+    if (c) {
+      try {
+        const candidate = new RTCIceCandidate(JSON.parse(c));
+        await pc.addIceCandidate(candidate);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }
+};
+</script>
+</body>
+</html>
